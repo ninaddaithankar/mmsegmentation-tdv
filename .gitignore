@@ -118,3 +118,10 @@ mmseg/.mim
 
 # Pytorch
 *.pth
+
+
+.github/
+.dev_scripts
+.circleci
+
+node_modules/
