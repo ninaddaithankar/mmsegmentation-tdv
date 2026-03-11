@@ -17,7 +17,7 @@ model = dict(
         checkpoint_path=None,  # set to your TDV .ckpt path
         out_indices=(2, 5, 8, 11),
         frozen=True,
-        tdv_repo_path='/work/hdd/bcsi/ndaithankar/tdv'),
+        tdv_repo_path='/shared/nas2/ninadd2/tdv-new'),
     neck=dict(type='Feature2Pyramid', embed_dim=768, rescales=[4, 2, 1, 0.5]),
     decode_head=dict(
         type='UPerHead',

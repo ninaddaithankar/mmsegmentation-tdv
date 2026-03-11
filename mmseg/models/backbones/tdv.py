@@ -1,6 +1,5 @@
 import sys
 import torch
-import torch.nn as nn
 from mmengine.model import BaseModule
 from mmseg.registry import MODELS
 
@@ -51,7 +50,7 @@ class TDVBackbone(BaseModule):
         frozen (bool): Freeze backbone weights (no gradient). Default: True.
         tdv_repo_path (str): Filesystem path to the root of the TDV repo so
             that ``model.*`` imports resolve correctly.
-            Default: ``'/work/hdd/bcsi/ndaithankar/tdv'``.
+            Default: ``'/shared/nas2/ninadd2/tdv-new'``.
         init_cfg (dict | list[dict] | None): Initialisation config.
     """
 
@@ -61,7 +60,7 @@ class TDVBackbone(BaseModule):
         checkpoint_path=None,
         out_indices=None,
         frozen=True,
-        tdv_repo_path='/work/hdd/bcsi/ndaithankar/tdv',
+        tdv_repo_path='/shared/nas2/ninadd2/tdv-new',
         init_cfg=None,
     ):
         super().__init__(init_cfg=init_cfg)
@@ -69,17 +68,17 @@ class TDVBackbone(BaseModule):
         if tdv_repo_path not in sys.path:
             sys.path.insert(0, tdv_repo_path)
 
-        from model.model_utils import create_image_encoder  # noqa: F401 (TDV import)
+        from model.model_utils import load_image_encoder
 
         self.embed_dim = _EMBED_DIMS[backbone_size]
         self.out_indices = out_indices if out_indices is not None else _DEFAULT_OUT_INDICES[backbone_size]
 
         if checkpoint_path is not None:
             self.encoder = self._load_from_tdv_checkpoint(
-                checkpoint_path, backbone_size, create_image_encoder
+                checkpoint_path, backbone_size, load_image_encoder
             )
         else:
-            self.encoder = create_image_encoder(
+            self.encoder = load_image_encoder(
                 'dinov2', backbone_size, pretrained=True
             )
 
@@ -88,9 +87,13 @@ class TDVBackbone(BaseModule):
                 p.requires_grad_(False)
 
     @staticmethod
-    def _load_from_tdv_checkpoint(ckpt_path, backbone_size, create_image_encoder):
+    def _load_from_tdv_checkpoint(ckpt_path, backbone_size, load_image_encoder):
         """Load frame_encoder weights from a TDV PL checkpoint."""
         checkpoint = torch.load(ckpt_path, map_location='cpu', weights_only=False)
+        if 'state_dict' not in checkpoint:
+            raise KeyError(
+                f'TDV checkpoint at {ckpt_path} does not contain a "state_dict" entry.'
+            )
 
         key = 'frame_encoder'
         prefix = f'model.{key}.'
@@ -99,13 +102,13 @@ class TDVBackbone(BaseModule):
             for k, v in checkpoint['state_dict'].items()
             if k.startswith(prefix)
         }
+        if not encoder_sd:
+            raise KeyError(
+                f'No TDV frame encoder weights with prefix "{prefix}" were found in {ckpt_path}.'
+            )
 
-        encoder = create_image_encoder('dinov2', backbone_size, pretrained=False)
-        missing, unexpected = encoder.load_state_dict(encoder_sd, strict=False)
-        if missing:
-            print(f'[TDVBackbone] Missing keys ({len(missing)}): {missing[:5]}{"..." if len(missing) > 5 else ""}')
-        if unexpected:
-            print(f'[TDVBackbone] Unexpected keys ({len(unexpected)}): {unexpected[:5]}{"..." if len(unexpected) > 5 else ""}')
+        encoder = load_image_encoder('dinov2', backbone_size, pretrained=False)
+        encoder.load_state_dict(encoder_sd, strict=True)
 
         return encoder
 
