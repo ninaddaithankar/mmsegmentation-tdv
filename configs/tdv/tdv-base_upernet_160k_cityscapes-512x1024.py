@@ -1,5 +1,3 @@
-import os
-
 _base_ = [
     '../_base_/models/upernet_tdv.py',
     '../_base_/datasets/cityscapes.py',
@@ -7,13 +5,9 @@ _base_ = [
     '../_base_/schedules/schedule_160k.py',
 ]
 
-wandb_project = os.getenv('WANDB_PROJECT', 'mmseg-tdv')
-wandb_run_name = os.getenv('WANDB_NAME', 'tdv-cityscapes-fixed-encoder')
 vis_backends = [
     dict(type='LocalVisBackend'),
-    dict(
-        type='WandbVisBackend',
-        init_kwargs=dict(project=wandb_project, name=wandb_run_name))
+    dict(type='WandbVisBackend')
 ]
 visualizer = dict(
     type='SegLocalVisualizer', vis_backends=vis_backends, name='visualizer')
