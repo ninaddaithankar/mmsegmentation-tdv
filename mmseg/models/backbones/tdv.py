@@ -60,6 +60,8 @@ class TDVBackbone(BaseModule):
         checkpoint_path=None,
         out_indices=None,
         frozen=True,
+        patch_size=14,
+        use_rope=False,
         tdv_repo_path='/shared/nas2/ninadd2/tdv-new',
         init_cfg=None,
     ):
@@ -75,7 +77,8 @@ class TDVBackbone(BaseModule):
 
         if checkpoint_path is not None:
             self.encoder = self._load_from_tdv_checkpoint(
-                checkpoint_path, backbone_size, create_image_encoder
+                checkpoint_path, backbone_size, create_image_encoder,
+                patch_size=patch_size, use_rope=use_rope,
             )
         else:
             self.encoder = create_image_encoder(
@@ -87,27 +90,59 @@ class TDVBackbone(BaseModule):
                 p.requires_grad_(False)
 
     @staticmethod
-    def _load_from_tdv_checkpoint(ckpt_path, backbone_size, create_image_encoder):
-        """Load frame_encoder weights from a TDV PL checkpoint."""
+    def _load_from_tdv_checkpoint(ckpt_path, backbone_size, create_image_encoder,
+                                   patch_size=14, use_rope=False):
+        """Load encoder weights from a TDV PL checkpoint or a DINO checkpoint.
+
+        Supported formats:
+        - TDV (PyTorch Lightning): has ``state_dict`` with ``model.frame_encoder.*`` keys.
+        - DINO: has ``teacher`` with ``backbone.*`` keys.
+        """
         checkpoint = torch.load(ckpt_path, map_location='cpu', weights_only=False)
-        if 'state_dict' not in checkpoint:
+
+        if 'state_dict' in checkpoint:
+            # TDV / PyTorch Lightning format
+            prefix = 'model.frame_encoder.'
+            encoder_sd = {
+                k[len(prefix):]: v
+                for k, v in checkpoint['state_dict'].items()
+                if k.startswith(prefix)
+            }
+            if not encoder_sd:
+                raise KeyError(
+                    f'No weights with prefix "{prefix}" found in {ckpt_path}.'
+                )
+        elif 'teacher' in checkpoint:
+            # DINO format — use teacher backbone
+            # The chunked model (block_chunks=1) stores blocks as blocks.0.{i}.*
+            # but DINO checkpoints use flat blocks.{i}.* — remap accordingly.
+            prefix = 'backbone.'
+            raw_sd = {
+                k[len(prefix):]: v
+                for k, v in checkpoint['teacher'].items()
+                if k.startswith(prefix)
+            }
+            if not raw_sd:
+                raise KeyError(
+                    f'No weights with prefix "{prefix}" found under "teacher" in {ckpt_path}.'
+                )
+            encoder_sd = {}
+            for k, v in raw_sd.items():
+                if k.startswith('blocks.'):
+                    # blocks.{i}.rest  →  blocks.0.{i}.rest
+                    rest = k[len('blocks.'):]
+                    block_idx, remainder = rest.split('.', 1)
+                    k = f'blocks.0.{block_idx}.{remainder}'
+                encoder_sd[k] = v
+        else:
             raise KeyError(
-                f'TDV checkpoint at {ckpt_path} does not contain a "state_dict" entry.'
+                f'Unrecognised checkpoint format in {ckpt_path}. '
+                f'Expected "state_dict" (TDV) or "teacher" (DINO). '
+                f'Got keys: {list(checkpoint.keys())}'
             )
 
-        key = 'frame_encoder'
-        prefix = f'model.{key}.'
-        encoder_sd = {
-            k[len(prefix):]: v
-            for k, v in checkpoint['state_dict'].items()
-            if k.startswith(prefix)
-        }
-        if not encoder_sd:
-            raise KeyError(
-                f'No TDV frame encoder weights with prefix "{prefix}" were found in {ckpt_path}.'
-            )
-
-        encoder = create_image_encoder('dinov2', backbone_size, pretrained=False)
+        encoder = create_image_encoder('dinov2', backbone_size, pretrained=False,
+                                        patch_size=patch_size, use_rope=use_rope)
         encoder.load_state_dict(encoder_sd, strict=True)
 
         return encoder
