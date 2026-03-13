@@ -14,6 +14,9 @@ export PYTHONPATH="${REPO_ROOT}:${PYTHONPATH:-}"
 
 cd "${REPO_ROOT}"
 
-CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-1}" python3 tools/train.py "${CONFIG}" \
+CUDA_VISIBLE_DEVICES=3 python3 tools/train.py "${CONFIG}" \
   --work-dir "${WORK_DIR}" \
-  --cfg-options model.backbone.checkpoint_path="${DINO_CKPT}"
+  --cfg-options model.backbone.checkpoint_path="${DINO_CKPT}" \
+    train_cfg.max_iters=320000 \
+    param_scheduler.1.end=320000 \
+    default_hooks.checkpoint.interval=16000
