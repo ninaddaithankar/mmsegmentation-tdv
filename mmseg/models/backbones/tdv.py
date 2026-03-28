@@ -62,6 +62,7 @@ class TDVBackbone(BaseModule):
         frozen=True,
         patch_size=14,
         use_rope=False,
+        random_init=False,
         tdv_repo_path='/shared/nas2/ninadd2/tdv-new',
         init_cfg=None,
     ):
@@ -75,7 +76,13 @@ class TDVBackbone(BaseModule):
         self.embed_dim = _EMBED_DIMS[backbone_size]
         self.out_indices = out_indices if out_indices is not None else _DEFAULT_OUT_INDICES[backbone_size]
 
-        if checkpoint_path is not None:
+        if random_init:
+            # No pretrained weights — purely random initialisation (baseline).
+            self.encoder = create_image_encoder(
+                'dinov2', backbone_size, pretrained=False,
+                patch_size=patch_size, use_rope=use_rope,
+            )
+        elif checkpoint_path is not None:
             self.encoder = self._load_from_tdv_checkpoint(
                 checkpoint_path, backbone_size, create_image_encoder,
                 patch_size=patch_size, use_rope=use_rope,
