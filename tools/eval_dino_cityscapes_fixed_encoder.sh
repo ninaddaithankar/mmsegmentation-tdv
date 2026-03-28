@@ -5,8 +5,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 CONFIG="configs/tdv/dino-base_upernet_160k_cityscapes-512x1024.py"
-DINO_CKPT="/shared/nas2/ninadd2/repos/dino-recipe/output/FULL_AUG_dino_ssv2_only_/checkpoint.pth"
-WORK_DIR="${1:-work_dirs/dino-cityscapes-fixed-encoder}"
+# DINO_CKPT="/shared/nas2/ninadd2/repos/dino-recipe/output/FULL_AUG_dino_ssv2_only_/checkpoint.pth"
+DINO_CKPT="/shared/nas2/ninadd2/repos/ibot/work_dirs/ibot_ssv2/checkpoint0020.pth"
+WORK_DIR="${1:-work_dirs/ibot-cityscapes-fixed-encoder}"
 export WANDB_PROJECT="${WANDB_PROJECT:-mmseg-tdv}"
 export WANDB_NAME="${WANDB_NAME:-$(basename "${WORK_DIR}")}"
 
@@ -14,7 +15,7 @@ export PYTHONPATH="${REPO_ROOT}:${PYTHONPATH:-}"
 
 cd "${REPO_ROOT}"
 
-CUDA_VISIBLE_DEVICES=3 python3 tools/train.py "${CONFIG}" \
+CUDA_VISIBLE_DEVICES=1 python3 tools/train.py "${CONFIG}" \
   --work-dir "${WORK_DIR}" \
   --cfg-options model.backbone.checkpoint_path="${DINO_CKPT}" \
     train_cfg.max_iters=320000 \
