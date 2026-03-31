@@ -13,7 +13,7 @@ export PYTHONPATH="${REPO_ROOT}:${PYTHONPATH:-}"
 
 cd "${REPO_ROOT}"
 
-CUDA_VISIBLE_DEVICES=2 python3 tools/train.py "${CONFIG}" \
+CUDA_VISIBLE_DEVICES=6 python3 tools/train.py "${CONFIG}" \
   --work-dir "${WORK_DIR}" \
   --cfg-options model.backbone.random_init=True \
     train_cfg.max_iters=320000 \
