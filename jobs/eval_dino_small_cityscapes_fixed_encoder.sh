@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+CONFIG="configs/tdv/dino-small_upernet_160k_cityscapes-512x1024.py"
+
+DINO_CKPT="/shared/nas2/ninadd2/repos/dino-recipe/output/VIT_SMALL;default_hparams;ds=ssv2;pct=_/checkpoint.pth"
+# DINO_CKPT="/shared/nas2/ninadd2/repos/ibot/work_dirs/VIT_SMALL|ibot_ssv2/checkpoint0020.pth"
+
+WORK_DIR="${1:-work_dirs/dino-small-cityscapes-fixed-encoder}"
+export WANDB_PROJECT="${WANDB_PROJECT:-mmseg-tdv}"
+export WANDB_NAME="${WANDB_NAME:-$(basename "${WORK_DIR}")}"
+
+export PYTHONPATH="${REPO_ROOT}:${PYTHONPATH:-}"
+
+cd "${REPO_ROOT}"
+
+CUDA_VISIBLE_DEVICES=5 python3 tools/train.py "${CONFIG}" \
+  --work-dir "${WORK_DIR}" \
+  --cfg-options model.backbone.checkpoint_path="${DINO_CKPT}" \
+    train_cfg.max_iters=320000 \
+    param_scheduler.1.end=320000 \
+    default_hooks.checkpoint.interval=16000
